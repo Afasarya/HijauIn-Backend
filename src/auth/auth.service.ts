@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto, LoginDto } from './dto';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { UserRole } from './enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -49,19 +50,21 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
+    // Create user with default role USER
     const user = await this.prisma.user.create({
       data: {
         nama_panggilan,
         username,
         email,
         password: hashedPassword,
+        role: UserRole.USER, // Default role
       },
       select: {
         id: true,
         nama_panggilan: true,
         username: true,
         email: true,
+        role: true,
         createdAt: true,
       },
     });
@@ -93,11 +96,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Generate JWT token
+    // Generate JWT token with role
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       username: user.username,
+      role: user.role as UserRole,
     };
 
     const access_token = this.jwtService.sign(payload);
@@ -105,6 +109,13 @@ export class AuthService {
     return {
       message: 'Login success',
       access_token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        nama_panggilan: user.nama_panggilan,
+        role: user.role,
+      },
     };
   }
 
@@ -116,6 +127,7 @@ export class AuthService {
         nama_panggilan: true,
         username: true,
         email: true,
+        role: true,
         createdAt: true,
       },
     });
