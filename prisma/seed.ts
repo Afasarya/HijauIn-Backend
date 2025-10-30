@@ -22,6 +22,21 @@ async function main() {
   });
   console.log('✅ Admin created:', admin.email);
 
+  // Create test USER - Arya Fathdillah
+  const aryaPassword = await bcrypt.hash('arya123', 10);
+  const arya = await prisma.user.upsert({
+    where: { email: 'coderea9@gmail.com' },
+    update: {},
+    create: {
+      email: 'coderea9@gmail.com',
+      username: 'aryafath',
+      password: aryaPassword,
+      nama_panggilan: 'Arya Fathdillah',
+      role: UserRole.USER,
+    },
+  });
+  console.log('✅ Test User (Arya) created:', arya.email);
+
   // Create regular USER for testing
   const userPassword = await bcrypt.hash('user123', 10);
   const user = await prisma.user.upsert({
@@ -43,7 +58,10 @@ async function main() {
   console.log('ADMIN:');
   console.log('  Email: admin@hijauin.com');
   console.log('  Password: admin123');
-  console.log('\nUSER:');
+  console.log('\nTEST USER (Arya Fathdillah):');
+  console.log('  Email: coderea9@gmail.com');
+  console.log('  Password: arya123');
+  console.log('\nREGULAR USER:');
   console.log('  Email: user@hijauin.com');
   console.log('  Password: user123');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
