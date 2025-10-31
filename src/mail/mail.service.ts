@@ -9,7 +9,9 @@ export class MailService {
   constructor(private configService: ConfigService) {}
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    const resetUrl = `${this.configService.get('RESET_PASSWORD_URL')}${token}`;
+    // URL harus ke /auth/reset-password bukan /reset-password
+    const baseUrl = this.configService.get('RESET_PASSWORD_URL');
+    const resetUrl = `http://localhost:3000/auth/reset-password?token=${token}`;
     const apiKey = this.configService.get('RESEND_API_KEY');
 
     try {

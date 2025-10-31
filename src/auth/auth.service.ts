@@ -224,6 +224,41 @@ export class AuthService {
     };
   }
 
+  async validateResetToken(token: string) {
+    const resetToken = await this.prisma.passwordResetToken.findUnique({
+      where: { token },
+    });
+
+    if (!resetToken) {
+      return {
+        valid: false,
+        message: 'Token tidak valid atau tidak ditemukan',
+      };
+    }
+
+    // Validasi token belum expired
+    const now = new Date();
+    if (resetToken.expiresAt < now) {
+      return {
+        valid: false,
+        message: 'Token sudah kadaluarsa. Link reset password hanya berlaku 15 menit.',
+      };
+    }
+
+    // Validasi token belum digunakan
+    if (resetToken.used) {
+      return {
+        valid: false,
+        message: 'Token sudah pernah digunakan. Silakan request reset password baru.',
+      };
+    }
+
+    return {
+      valid: true,
+      message: 'Token valid',
+    };
+  }
+
   async validateUser(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },

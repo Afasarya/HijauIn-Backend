@@ -1,6 +1,7 @@
 import { 
   Controller, 
   Get, 
+  Post,
   Param, 
   Patch, 
   Delete,
@@ -14,11 +15,47 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  // ===== User Profile Management =====
+  @Get('me')
+  async getMyProfile(@GetUser('id') userId: string) {
+    const user = await this.usersService.getProfile(userId);
+    return {
+      message: 'Profile retrieved successfully',
+      user,
+    };
+  }
+
+  @Patch('me')
+  async updateMyProfile(
+    @GetUser('id') userId: string,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    const user = await this.usersService.updateProfile(userId, updateProfileDto);
+    return {
+      message: 'Profile updated successfully',
+      user,
+    };
+  }
+
+  // ===== Admin User Management =====
+  @Roles(UserRole.ADMIN)
+  @Post()
+  async createUser(@Body() createUserDto: CreateUserDto) {
+    const user = await this.usersService.createUser(createUserDto);
+    return {
+      message: 'User created successfully',
+      user,
+    };
+  }
 
   @Roles(UserRole.ADMIN)
   @Get()
@@ -46,6 +83,19 @@ export class UsersController {
     const user = await this.usersService.findOne(id);
     return {
       message: 'User retrieved successfully',
+      user,
+    };
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Patch(':id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    const user = await this.usersService.updateUser(id, updateUserDto);
+    return {
+      message: 'User updated successfully',
       user,
     };
   }
