@@ -16,7 +16,7 @@ export class MailService {
       await axios.post(
         'https://api.resend.com/emails',
         {
-          from: 'HijauIn <no-reply@hijauin.com>',
+          from: 'HijauIn <onboarding@resend.dev>',
           to: email,
           subject: 'Reset Password - HijauIn',
           html: `
