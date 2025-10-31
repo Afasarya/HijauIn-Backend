@@ -23,7 +23,7 @@
     "prisma:migrate": "npx prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "db:seed": "npm run prisma:seed",
-    "render:build": "npm install && npm run build && npm run prisma:generate && npm run prisma:migrate"
+    "render:build": "npm install && npm run build && npx prisma generate && npx prisma migrate deploy && npm run db:seed"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
