@@ -19,6 +19,12 @@ enum UserRole {
   ADMIN
 }
 
+enum WasteCategory {
+  ORGANIK
+  ANORGANIK
+  B3
+}
+
 model User {
   id            String   @id @default(uuid())
   nama_panggilan String
@@ -31,6 +37,7 @@ model User {
   updatedAt     DateTime @updatedAt
 
   passwordResetTokens PasswordResetToken[]
+  wasteLocations      WasteLocation[]
 
   @@map("users")
 }
@@ -45,4 +52,18 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@map("password_reset_tokens")
+}
+
+model WasteLocation {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  latitude    Float
+  longitude   Float
+  category    WasteCategory
+  createdBy   String        @map("created_by")
+  created_at  DateTime      @default(now())
+  user        User          @relation(fields: [createdBy], references: [id])
+
+  @@map("waste_locations")
 }
