@@ -1,5 +1,5 @@
-import { IsNumber, IsOptional, IsEnum, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsNumber, IsOptional, IsEnum, Min, Max, IsArray } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 import { WasteCategory } from '../../../generated/prisma/client';
 
 export class NearbyQueryDto {
@@ -21,7 +21,13 @@ export class NearbyQueryDto {
   @Min(0)
   radius?: number = 1000; // Default 1000 meters
 
-  @IsEnum(WasteCategory)
+  @IsArray()
   @IsOptional()
-  category?: WasteCategory;
+  @IsEnum(WasteCategory, { each: true })
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    // Handle single value or array
+    return Array.isArray(value) ? value : [value];
+  })
+  categories?: WasteCategory[];
 }

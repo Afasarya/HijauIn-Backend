@@ -20,58 +20,50 @@ import { WasteCategory } from '../../generated/prisma/client';
 
 /**
  * ============================================
- * WASTE LOCATIONS CONTROLLER
+ * WASTE LOCATIONS CONTROLLER - LOKA (Tong Sampah)
  * ============================================
  * 
- * Endpoints untuk manajemen lokasi tempat sampah (Loka)
+ * Konteks: TONG SAMPAH / TEMPAT SAMPAH
+ * - Image: 1 foto tong sampah
+ * - Description: Deskripsi singkat lokasi tong sampah
+ * - Categories: Multiple (misal: satu tong bisa untuk ORGANIK + ANORGANIK)
  * 
  * ADMIN ENDPOINTS (require JWT + ADMIN role):
- * - POST   /waste-locations          → Create new location
- * - GET    /waste-locations          → Get all locations (admin view)
- * - GET    /waste-locations/:id      → Get location by ID
- * - PATCH  /waste-locations/:id      → Update location
- * - DELETE /waste-locations/:id      → Delete location
+ * - POST   /waste-locations          → Tambah lokasi tong sampah
+ * - GET    /waste-locations          → Lihat semua lokasi (admin view)
+ * - GET    /waste-locations/:id      → Detail lokasi tong sampah
+ * - PATCH  /waste-locations/:id      → Update lokasi tong sampah
+ * - DELETE /waste-locations/:id      → Hapus lokasi tong sampah
  * 
  * PUBLIC ENDPOINTS (no auth required):
- * - GET    /loka                      → Get all locations (public view)
- * - GET    /loka/nearby               → Find nearby locations with radius filter
+ * - GET    /loka                      → Lihat semua lokasi tong sampah
+ * - GET    /loka/nearby               → Cari tong sampah terdekat
  * 
  * ============================================
  * POSTMAN EXAMPLES:
  * ============================================
  * 
- * 1. CREATE LOCATION (ADMIN)
+ * 1. CREATE LOKASI TONG SAMPAH (ADMIN)
  * POST http://localhost:3000/waste-locations
  * Headers: { "Authorization": "Bearer <admin_jwt_token>" }
  * Body:
  * {
- *   "name": "TPS Kampus UMP",
- *   "description": "Tempat Pembuangan Sampah utama kampus",
- *   "latitude": -7.429,
- *   "longitude": 109.232,
- *   "category": "ANORGANIK"
+ *   "name": "Tong Sampah Depan Gedung A",
+ *   "description": "Tong sampah warna hijau dan kuning untuk organik dan anorganik",
+ *   "address": "Gedung A, Kampus UMP, Purwokerto",
+ *   "latitude": -7.4291,
+ *   "longitude": 109.2320,
+ *   "categories": ["ORGANIK", "ANORGANIK"],
+ *   "image_url": "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b"
  * }
  * 
- * 2. GET ALL LOCATIONS (PUBLIC)
+ * 2. LIHAT SEMUA TONG SAMPAH (PUBLIC)
  * GET http://localhost:3000/loka
- * GET http://localhost:3000/loka?category=ORGANIK
+ * GET http://localhost:3000/loka?categories=ORGANIK
  * 
- * 3. FIND NEARBY (PUBLIC)
- * GET http://localhost:3000/loka/nearby?lat=-7.42&lng=109.23&radius=1500
- * GET http://localhost:3000/loka/nearby?lat=-7.42&lng=109.23&radius=2000&category=ANORGANIK
- * 
- * 4. UPDATE LOCATION (ADMIN)
- * PATCH http://localhost:3000/waste-locations/:id
- * Headers: { "Authorization": "Bearer <admin_jwt_token>" }
- * Body:
- * {
- *   "name": "TPS Kampus UMP - Updated",
- *   "description": "Lokasi sudah dipindahkan"
- * }
- * 
- * 5. DELETE LOCATION (ADMIN)
- * DELETE http://localhost:3000/waste-locations/:id
- * Headers: { "Authorization": "Bearer <admin_jwt_token>" }
+ * 3. CARI TONG SAMPAH TERDEKAT
+ * GET http://localhost:3000/loka/nearby?lat=-7.42&lng=109.23&radius=500
+ * GET http://localhost:3000/loka/nearby?lat=-7.42&lng=109.23&radius=1000&categories=ORGANIK
  * 
  * ============================================
  */
@@ -104,11 +96,17 @@ export class WasteLocationsController {
   @Get('waste-locations')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async findAll(@Query('category') category?: WasteCategory) {
-    const locations = await this.wasteLocationsService.findAll(category);
+  async findAll(@Query('categories') categories?: string | string[]) {
+    // Handle both single and multiple categories
+    const categoryArray = categories 
+      ? (Array.isArray(categories) ? categories : [categories]) as WasteCategory[]
+      : undefined;
+
+    const locations = await this.wasteLocationsService.findAll(categoryArray);
     return {
       message: 'Waste locations retrieved successfully',
       count: locations.length,
+      filters: categoryArray ? { categories: categoryArray } : {},
       data: locations,
     };
   }
@@ -153,11 +151,17 @@ export class WasteLocationsController {
   // ============================================
 
   @Get('loka')
-  async findAllPublic(@Query('category') category?: WasteCategory) {
-    const locations = await this.wasteLocationsService.findAllPublic(category);
+  async findAllPublic(@Query('categories') categories?: string | string[]) {
+    // Handle both single and multiple categories
+    const categoryArray = categories 
+      ? (Array.isArray(categories) ? categories : [categories]) as WasteCategory[]
+      : undefined;
+
+    const locations = await this.wasteLocationsService.findAllPublic(categoryArray);
     return {
       message: 'Public waste locations retrieved successfully',
       count: locations.length,
+      filters: categoryArray ? { categories: categoryArray } : {},
       data: locations,
     };
   }
@@ -169,6 +173,12 @@ export class WasteLocationsController {
       message: 'Nearby waste locations retrieved successfully',
       count: locations.length,
       radius: query.radius || 1000,
+      filters: {
+        latitude: query.lat,
+        longitude: query.lng,
+        radius: query.radius || 1000,
+        categories: query.categories || [],
+      },
       data: locations,
     };
   }

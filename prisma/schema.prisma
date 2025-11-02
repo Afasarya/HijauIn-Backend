@@ -55,15 +55,30 @@ model PasswordResetToken {
 }
 
 model WasteLocation {
-  id          String        @id @default(uuid())
+  id          String                    @id @default(uuid())
   name        String
   description String?
   latitude    Float
   longitude   Float
-  category    WasteCategory
-  createdBy   String        @map("created_by")
-  created_at  DateTime      @default(now())
-  user        User          @relation(fields: [createdBy], references: [id])
+  address     String?
+  image_url   String?
+  createdBy   String                    @map("created_by")
+  created_at  DateTime                  @default(now())
+  updated_at  DateTime                  @updatedAt
+  
+  user        User                      @relation(fields: [createdBy], references: [id])
+  categories  WasteLocationCategory[]
 
   @@map("waste_locations")
+}
+
+model WasteLocationCategory {
+  id               String        @id @default(uuid())
+  wasteLocationId  String        @map("waste_location_id")
+  category         WasteCategory
+  
+  wasteLocation    WasteLocation @relation(fields: [wasteLocationId], references: [id], onDelete: Cascade)
+
+  @@unique([wasteLocationId, category])
+  @@map("waste_location_categories")
 }

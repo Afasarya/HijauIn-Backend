@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsEnum, IsOptional, Min, Max, IsArray, IsUrl, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
 import { WasteCategory } from '../../../generated/prisma/client';
 
 export class CreateWasteLocationDto {
@@ -9,6 +10,10 @@ export class CreateWasteLocationDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
 
   @IsNumber()
   @IsNotEmpty()
@@ -22,7 +27,12 @@ export class CreateWasteLocationDto {
   @Max(180)
   longitude: number;
 
-  @IsEnum(WasteCategory)
-  @IsNotEmpty()
-  category: WasteCategory;
+  @IsArray()
+  @ArrayMinSize(1, { message: 'At least one category is required' })
+  @IsEnum(WasteCategory, { each: true })
+  categories: WasteCategory[];
+
+  @IsUrl()
+  @IsOptional()
+  image_url?: string;
 }

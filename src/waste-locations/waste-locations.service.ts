@@ -8,55 +8,51 @@ export class WasteLocationsService {
   constructor(private prisma: PrismaService) {}
 
   /**
-   * Create a new waste location (Admin only)
+   * Create a new waste location with multiple categories and images (Admin only)
    */
   async create(createDto: CreateWasteLocationDto, userId: string) {
-    const { name, description, latitude, longitude, category } = createDto;
+    const { name, description, address, latitude, longitude, categories, image_url } = createDto;
 
     const location = await this.prisma.wasteLocation.create({
       data: {
         name,
         description,
+        address,
         latitude,
         longitude,
-        category,
+        image_url,
         createdBy: userId,
+        categories: {
+          create: categories.map((category) => ({ category })),
+        },
       },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        latitude: true,
-        longitude: true,
-        category: true,
-        createdBy: true,
-        created_at: true,
+      include: {
+        categories: true,
       },
     });
 
-    return location;
+    return this.formatLocation(location);
   }
 
   /**
    * Get all waste locations with optional category filter (Admin view)
    */
-  async findAll(category?: WasteCategory) {
+  async findAll(categories?: WasteCategory[]) {
     const locations = await this.prisma.wasteLocation.findMany({
-      where: category ? { category } : undefined,
-      orderBy: { created_at: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        latitude: true,
-        longitude: true,
-        category: true,
-        createdBy: true,
-        created_at: true,
+      where: categories?.length ? {
+        categories: {
+          some: {
+            category: { in: categories },
+          },
+        },
+      } : undefined,
+      include: {
+        categories: true,
       },
+      orderBy: { created_at: 'desc' },
     });
 
-    return locations;
+    return locations.map((loc) => this.formatLocation(loc));
   }
 
   /**
@@ -65,15 +61,16 @@ export class WasteLocationsService {
   async findOne(id: string) {
     const location = await this.prisma.wasteLocation.findUnique({
       where: { id },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        latitude: true,
-        longitude: true,
-        category: true,
-        createdBy: true,
-        created_at: true,
+      include: {
+        categories: true,
+        user: {
+          select: {
+            id: true,
+            nama_panggilan: true,
+            username: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -81,36 +78,57 @@ export class WasteLocationsService {
       throw new NotFoundException(`Waste location with ID ${id} not found`);
     }
 
-    return location;
+    return this.formatLocation(location);
   }
 
   /**
-   * Update a waste location (Admin only)
+   * Update a waste location with categories and images (Admin only)
    */
   async update(id: string, updateDto: UpdateWasteLocationDto) {
     // Check if location exists
     await this.findOne(id);
 
-    const location = await this.prisma.wasteLocation.update({
-      where: { id },
-      data: updateDto,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        latitude: true,
-        longitude: true,
-        category: true,
-        createdBy: true,
-        created_at: true,
-      },
+    const { categories, ...basicData } = updateDto;
+
+    // Start transaction to update location, categories, and images
+    const location = await this.prisma.$transaction(async (tx) => {
+      // Update basic data
+      const updated = await tx.wasteLocation.update({
+        where: { id },
+        data: basicData,
+      });
+
+      // Update categories if provided
+      if (categories && categories.length > 0) {
+        // Delete existing categories
+        await tx.wasteLocationCategory.deleteMany({
+          where: { wasteLocationId: id },
+        });
+
+        // Create new categories
+        await tx.wasteLocationCategory.createMany({
+          data: categories.map((category) => ({
+            wasteLocationId: id,
+            category,
+          })),
+        });
+      }
+
+      // Fetch updated location with relations
+      return tx.wasteLocation.findUnique({
+        where: { id },
+        include: {
+          categories: true,
+        },
+      });
     });
 
-    return location;
+    return this.formatLocation(location!);
   }
 
   /**
    * Delete a waste location (Admin only)
+   * Categories and images will be deleted automatically due to CASCADE
    */
   async remove(id: string) {
     // Check if location exists
@@ -125,56 +143,47 @@ export class WasteLocationsService {
 
   /**
    * Get all waste locations for public view (no auth required)
-   * With optional category filter
+   * With optional categories filter
    */
-  async findAllPublic(category?: WasteCategory) {
+  async findAllPublic(categories?: WasteCategory[]) {
     const locations = await this.prisma.wasteLocation.findMany({
-      where: category ? { category } : undefined,
-      orderBy: { created_at: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        latitude: true,
-        longitude: true,
-        category: true,
-        created_at: true,
+      where: categories?.length ? {
+        categories: {
+          some: {
+            category: { in: categories },
+          },
+        },
+      } : undefined,
+      include: {
+        categories: true,
       },
+      orderBy: { created_at: 'desc' },
     });
 
-    return locations.map((loc) => ({
-      id: loc.id,
-      name: loc.name,
-      description: loc.description,
-      category: loc.category,
-      coordinates: {
-        latitude: loc.latitude,
-        longitude: loc.longitude,
-      },
-      created_at: loc.created_at,
-    }));
+    return locations.map((loc) => this.formatLocationPublic(loc));
   }
 
   /**
    * Find nearby waste locations using Haversine formula
-   * Query parameters: lat, lng, radius (in meters), category (optional)
+   * Query parameters: lat, lng, radius (in meters), categories (optional, array)
    * 
    * Haversine formula calculates distance between two points on Earth's surface
    * More info: https://en.wikipedia.org/wiki/Haversine_formula
    */
   async findNearby(query: NearbyQueryDto) {
-    const { lat, lng, radius = 1000, category } = query;
+    const { lat, lng, radius = 1000, categories } = query;
 
-    // Get all locations (with optional category filter)
+    // Get all locations (with optional categories filter)
     const locations = await this.prisma.wasteLocation.findMany({
-      where: category ? { category } : undefined,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        latitude: true,
-        longitude: true,
-        category: true,
+      where: categories?.length ? {
+        categories: {
+          some: {
+            category: { in: categories },
+          },
+        },
+      } : undefined,
+      include: {
+        categories: true,
       },
     });
 
@@ -198,13 +207,15 @@ export class WasteLocationsService {
     return locationsWithDistance.map((loc) => ({
       id: loc.id,
       name: loc.name,
-      category: loc.category,
+      description: loc.description,
+      address: loc.address,
+      categories: loc.categories.map((c) => c.category),
       distance: parseFloat(loc.distance.toFixed(2)), // Distance in meters
       coordinates: {
         latitude: loc.latitude,
         longitude: loc.longitude,
       },
-      description: loc.description,
+      image_url: loc.image_url,
     }));
   }
 
@@ -237,5 +248,44 @@ export class WasteLocationsService {
 
     const distance = R * c; // Distance in meters
     return distance;
+  }
+
+  /**
+   * Format location data for response (Admin)
+   */
+  private formatLocation(location: any) {
+    return {
+      id: location.id,
+      name: location.name,
+      description: location.description,
+      address: location.address,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      categories: location.categories.map((c: any) => c.category),
+      image_url: location.image_url,
+      createdBy: location.createdBy,
+      created_at: location.created_at,
+      updated_at: location.updated_at,
+      user: location.user,
+    };
+  }
+
+  /**
+   * Format location data for public response
+   */
+  private formatLocationPublic(location: any) {
+    return {
+      id: location.id,
+      name: location.name,
+      description: location.description,
+      address: location.address,
+      coordinates: {
+        latitude: location.latitude,
+        longitude: location.longitude,
+      },
+      categories: location.categories.map((c: any) => c.category),
+      image_url: location.image_url,
+      created_at: location.created_at,
+    };
   }
 }

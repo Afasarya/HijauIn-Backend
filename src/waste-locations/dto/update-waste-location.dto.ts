@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsEnum, IsOptional, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsEnum, IsOptional, Min, Max, IsArray, IsUrl } from 'class-validator';
 import { WasteCategory } from '../../../generated/prisma/client';
 
 export class UpdateWasteLocationDto {
@@ -9,6 +9,10 @@ export class UpdateWasteLocationDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  address?: string;
 
   @IsNumber()
   @IsOptional()
@@ -22,7 +26,12 @@ export class UpdateWasteLocationDto {
   @Max(180)
   longitude?: number;
 
-  @IsEnum(WasteCategory)
+  @IsArray()
   @IsOptional()
-  category?: WasteCategory;
+  @IsEnum(WasteCategory, { each: true })
+  categories?: WasteCategory[];
+
+  @IsUrl()
+  @IsOptional()
+  image_url?: string;
 }
