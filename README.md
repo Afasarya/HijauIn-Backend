@@ -21,78 +21,388 @@
   <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
   [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-## Description
+# 🌱 HijauIn Backend API
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Backend API untuk aplikasi HijauIn - Platform manajemen lokasi sampah berbasis NestJS, Prisma, dan PostgreSQL.
 
-## Project setup
+## 📋 Daftar Isi
 
-```bash
-$ npm install
-```
+- [Teknologi yang Digunakan](#teknologi-yang-digunakan)
+- [Prasyarat](#prasyarat)
+- [Instalasi & Setup](#instalasi--setup)
+- [Menjalankan Aplikasi](#menjalankan-aplikasi)
+- [API Documentation](#api-documentation)
+- [Testing](#testing)
+- [Deployment](#deployment)
 
-## Compile and run the project
+## 🛠 Teknologi yang Digunakan
 
-```bash
-# development
-$ npm run start
+- **Framework**: NestJS 11
+- **Database**: PostgreSQL
+- **ORM**: Prisma 6
+- **Authentication**: JWT (JSON Web Token)
+- **Validation**: class-validator & class-transformer
+- **Email Service**: Resend API
+- **Language**: TypeScript
 
-# watch mode
-$ npm run start:dev
+## 📦 Prasyarat
 
-# production mode
-$ npm run start:prod
-```
+Sebelum memulai, pastikan sudah terinstall:
 
-## Run tests
+- [Node.js](https://nodejs.org/) (v18 atau lebih baru)
+- [PostgreSQL](https://www.postgresql.org/download/) (v12 atau lebih baru)
+- [npm](https://www.npmjs.com/) atau [yarn](https://yarnpkg.com/)
+- [Git](https://git-scm.com/)
 
-```bash
-# unit tests
-$ npm run test
+## 🚀 Instalasi & Setup
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
-```
-
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 1. Clone Repository
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+git clone <repository-url>
+cd hijauin-backend
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 2. Install Dependencies
 
-## Resources
+```bash
+npm install
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+### 3. Setup Database PostgreSQL
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**Buat database baru:**
 
-## Support
+```bash
+# Login ke PostgreSQL
+psql -U postgres
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+# Buat database baru
+CREATE DATABASE hijauin;
 
-## Stay in touch
+# Keluar dari psql
+\q
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### 4. Setup Environment Variables
 
-## License
+Buat file `.env` di root project:
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```bash
+# Copy dari .env.example (jika ada) atau buat manual
+cp .env.example .env
+```
+
+Isi file `.env` dengan konfigurasi berikut:
+
+```env
+# Database Configuration
+DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/hijauin?schema=public"
+
+# JWT Configuration
+JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
+JWT_EXPIRES_IN="7d"
+
+# Resend API Configuration (untuk email reset password)
+RESEND_API_KEY="your-resend-api-key"
+RESET_PASSWORD_URL="http://localhost:3000/reset-password?token="
+RESEND_FROM="HijauIn <onboarding@resend.dev>"
+
+# Server Port (optional, default: 3000)
+PORT=3000
+```
+
+**⚠️ PENTING:** Ganti `YOUR_PASSWORD` dengan password PostgreSQL Anda!
+
+### 5. Generate Prisma Client
+
+```bash
+npm run prisma:generate
+```
+
+### 6. Jalankan Database Migration
+
+```bash
+npx prisma migrate deploy
+```
+
+Atau jika ingin membuat migration baru (development):
+
+```bash
+npx prisma migrate dev
+```
+
+### 7. Seed Database (Opsional)
+
+Jalankan seeder untuk membuat data awal (admin, users, dan lokasi sampah):
+
+```bash
+npm run db:seed
+```
+
+**Data yang akan dibuat:**
+
+| Role  | Email                | Username  | Password  |
+| ----- | -------------------- | --------- | --------- |
+| ADMIN | admin@hijauin.com    | admin     | admin123  |
+| USER  | coderea9@gmail.com   | aryafath  | arya123   |
+| USER  | user@hijauin.com     | testuser  | user123   |
+
+Plus 5 lokasi sampah sample di area Purwokerto.
+
+## 🏃‍♂️ Menjalankan Aplikasi
+
+### Development Mode (dengan auto-reload)
+
+```bash
+npm run start:dev
+```
+
+Server akan berjalan di: `http://localhost:3000`
+
+### Production Mode
+
+```bash
+# Build project
+npm run build
+
+# Jalankan production
+npm run start:prod
+```
+
+### Debug Mode
+
+```bash
+npm run start:debug
+```
+
+## 📚 API Documentation
+
+### Base URL
+
+```
+http://localhost:3000
+```
+
+### Authentication Endpoints
+
+| Method | Endpoint              | Description           | Auth Required |
+| ------ | --------------------- | --------------------- | ------------- |
+| POST   | /auth/register        | Register user baru    | No            |
+| POST   | /auth/login           | Login user            | No            |
+| GET    | /auth/profile         | Get user profile      | Yes (JWT)     |
+| POST   | /auth/forgot-password | Request reset password| No            |
+| POST   | /auth/reset-password  | Reset password        | No            |
+
+### Users Endpoints (Profile)
+
+| Method | Endpoint  | Description              | Auth Required |
+| ------ | --------- | ------------------------ | ------------- |
+| GET    | /users/me | Get my profile           | Yes (JWT)     |
+| PATCH  | /users/me | Update my profile        | Yes (JWT)     |
+
+### Users Endpoints (Admin Only)
+
+| Method | Endpoint         | Description              | Auth Required  |
+| ------ | ---------------- | ------------------------ | -------------- |
+| GET    | /users           | Get all users            | Yes (ADMIN)    |
+| GET    | /users/stats     | Get user statistics      | Yes (ADMIN)    |
+| GET    | /users/:id       | Get user by ID           | Yes (ADMIN)    |
+| POST   | /users           | Create new user          | Yes (ADMIN)    |
+| PATCH  | /users/:id       | Update user              | Yes (ADMIN)    |
+| PATCH  | /users/:id/role  | Update user role         | Yes (ADMIN)    |
+| DELETE | /users/:id       | Delete user              | Yes (ADMIN)    |
+
+### Waste Locations Endpoints (Admin)
+
+| Method | Endpoint                | Description                  | Auth Required |
+| ------ | ----------------------- | ---------------------------- | ------------- |
+| POST   | /waste-locations        | Create waste location        | Yes (ADMIN)   |
+| GET    | /waste-locations        | Get all locations (admin)    | Yes (ADMIN)   |
+| GET    | /waste-locations/:id    | Get location by ID           | Yes (ADMIN)   |
+| PATCH  | /waste-locations/:id    | Update location              | Yes (ADMIN)   |
+| DELETE | /waste-locations/:id    | Delete location              | Yes (ADMIN)   |
+
+### Waste Locations Endpoints (Public)
+
+| Method | Endpoint      | Description                      | Auth Required |
+| ------ | ------------- | -------------------------------- | ------------- |
+| GET    | /loka         | Get all waste locations (public) | No            |
+| GET    | /loka/nearby  | Find nearby waste locations      | No            |
+
+### Example Request: Login
+
+```bash
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "emailOrUsername": "admin@hijauin.com",
+  "password": "admin123"
+}
+```
+
+**Response:**
+
+```json
+{
+  "message": "Login success",
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "user": {
+    "id": "uuid",
+    "email": "admin@hijauin.com",
+    "username": "admin",
+    "nama_panggilan": "Admin",
+    "role": "ADMIN"
+  }
+}
+```
+
+### Example Request: Create Waste Location (Admin)
+
+```bash
+POST http://localhost:3000/waste-locations
+Authorization: Bearer <your_jwt_token>
+Content-Type: application/json
+
+{
+  "name": "Tong Sampah Depan Gedung A",
+  "description": "Tong sampah untuk organik dan anorganik",
+  "address": "Gedung A, Kampus UMP",
+  "latitude": -7.4291,
+  "longitude": 109.2320,
+  "categories": ["ORGANIK", "ANORGANIK"],
+  "image_url": "https://example.com/image.jpg"
+}
+```
+
+### Example Request: Find Nearby Waste Locations
+
+```bash
+GET http://localhost:3000/loka/nearby?lat=-7.4291&lng=109.2320&radius=1000&categories=ORGANIK
+```
+
+## 🧪 Testing
+
+### Run Unit Tests
+
+```bash
+npm run test
+```
+
+### Run E2E Tests
+
+```bash
+npm run test:e2e
+```
+
+### Run Test Coverage
+
+```bash
+npm run test:cov
+```
+
+## 🔍 Database Management
+
+### View Database dengan Prisma Studio
+
+```bash
+npx prisma studio
+```
+
+Akan membuka UI di: `http://localhost:5555`
+
+### Reset Database (⚠️ HATI-HATI!)
+
+```bash
+# Drop semua data dan jalankan ulang migration
+npx prisma migrate reset
+
+# Atau manual:
+npx prisma migrate reset --force
+npm run db:seed
+```
+
+## 📝 Scripts yang Tersedia
+
+| Script                | Description                          |
+| --------------------- | ------------------------------------ |
+| `npm run start`       | Start aplikasi (production mode)     |
+| `npm run start:dev`   | Start dengan auto-reload (dev mode)  |
+| `npm run start:debug` | Start dengan debugger                |
+| `npm run build`       | Build aplikasi untuk production      |
+| `npm run lint`        | Run ESLint untuk check code quality  |
+| `npm run format`      | Format code dengan Prettier          |
+| `npm run test`        | Run unit tests                       |
+| `npm run test:e2e`    | Run end-to-end tests                 |
+| `npm run test:cov`    | Run tests dengan coverage report     |
+| `npm run prisma:generate` | Generate Prisma Client           |
+| `npm run prisma:migrate`  | Deploy database migrations       |
+| `npm run db:seed`     | Seed database dengan data awal       |
+
+## 🚢 Deployment
+
+### Render.com
+
+1. Push code ke GitHub
+2. Connect repository di Render.com
+3. Setup environment variables di Render dashboard
+4. Deploy akan otomatis menggunakan script: `npm run render:build`
+
+### Manual Deployment
+
+```bash
+# Build aplikasi
+npm run build
+
+# Jalankan migration
+npm run prisma:migrate
+
+# Start production server
+npm run start:prod
+```
+
+## 🔧 Troubleshooting
+
+### Error: "Can't reach database server"
+
+**Solusi:**
+- Pastikan PostgreSQL sudah running
+- Check DATABASE_URL di file `.env`
+- Test koneksi: `psql -U postgres -d hijauin`
+
+### Error: "Cannot find module '@prisma/client'"
+
+**Solusi:**
+```bash
+npm run prisma:generate
+```
+
+### Error: "Prisma schema loading error"
+
+**Solusi:**
+```bash
+npm install
+npm run prisma:generate
+```
+
+### Port 3000 sudah digunakan
+
+**Solusi:**
+- Ubah PORT di `.env`: `PORT=3001`
+- Atau stop aplikasi yang menggunakan port 3000
+
+## 📞 Support
+
+Jika ada pertanyaan atau masalah:
+
+- Email: coderea9@gmail.com
+- Author: Arya Fathdillah
+
+## 📄 License
+
+Private & Proprietary - © 2024 HijauIn
+
+---
+
+**Built with ❤️ using NestJS + Prisma + PostgreSQL**
