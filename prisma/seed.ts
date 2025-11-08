@@ -133,6 +133,99 @@ async function main() {
     console.log('✅ Waste location created:', location.name, `(${categories.join(', ')})`);
   }
 
+  // Create sample eco-green products
+  const products = [
+    {
+      id: 'seed-product-bamboo-toothbrush',
+      name: 'Bamboo Toothbrush',
+      description: 'Sikat gigi ramah lingkungan terbuat dari bambu organik',
+      price: 25000,
+      stock: 100,
+      category: 'Personal Care',
+      image_url: 'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04',
+    },
+    {
+      id: 'seed-product-reusable-bag',
+      name: 'Reusable Shopping Bag',
+      description: 'Tas belanja kain dapat digunakan berkali-kali, mengurangi plastik',
+      price: 35000,
+      stock: 150,
+      category: 'Shopping',
+      image_url: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b',
+    },
+    {
+      id: 'seed-product-steel-straw',
+      name: 'Stainless Steel Straw Set',
+      description: 'Set sedotan stainless steel dengan sikat pembersih',
+      price: 45000,
+      stock: 80,
+      category: 'Kitchen',
+      image_url: 'https://images.unsplash.com/photo-1593113598332-cd9d8c8f7e5c',
+    },
+    {
+      id: 'seed-product-compost-bin',
+      name: 'Home Compost Bin',
+      description: 'Tempat kompos untuk mengolah sampah organik di rumah',
+      price: 150000,
+      stock: 50,
+      category: 'Home & Garden',
+      image_url: 'https://images.unsplash.com/photo-1585659722983-3a675dabf23d',
+    },
+    {
+      id: 'seed-product-beeswax-wrap',
+      name: 'Beeswax Food Wrap',
+      description: 'Pembungkus makanan dari lilin lebah, alternatif plastik wrap',
+      price: 55000,
+      stock: 120,
+      category: 'Kitchen',
+      image_url: 'https://images.unsplash.com/photo-1610701596007-11502861dcfa',
+    },
+    {
+      id: 'seed-product-solar-charger',
+      name: 'Solar Power Bank',
+      description: 'Power bank tenaga surya 20000mAh untuk charging eco-friendly',
+      price: 250000,
+      stock: 40,
+      category: 'Electronics',
+      image_url: 'https://images.unsplash.com/photo-1509390144451-c8c73ddc2b6c',
+    },
+    {
+      id: 'seed-product-organic-soap',
+      name: 'Organic Bar Soap',
+      description: 'Sabun batangan organik tanpa kemasan plastik',
+      price: 30000,
+      stock: 200,
+      category: 'Personal Care',
+      image_url: 'https://images.unsplash.com/photo-1600857544200-242c2fc78e8a',
+    },
+    {
+      id: 'seed-product-glass-bottle',
+      name: 'Glass Water Bottle',
+      description: 'Botol minum kaca dengan sleeve silikon, BPA free',
+      price: 85000,
+      stock: 90,
+      category: 'Drinkware',
+      image_url: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8',
+    },
+  ];
+
+  for (const product of products) {
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: product.id },
+    });
+
+    if (existingProduct) {
+      console.log('⏭️  Product already exists:', product.name);
+      continue;
+    }
+
+    await prisma.product.create({
+      data: product,
+    });
+
+    console.log('✅ Product created:', product.name, `(${product.category})`);
+  }
+
   console.log('\n🎉 Seed completed!');
   console.log('\n📝 Test Credentials:');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -152,6 +245,15 @@ async function main() {
   console.log('  - TPA Regional Purwokerto (ANORGANIK)');
   console.log('  - Pusat Pengolahan Limbah B3 (B3)');
   console.log('  - TPS Pasar Wage (ORGANIK, ANORGANIK)');
+  console.log('\n🛍️ Sample Eco-Green Products:');
+  console.log('  - Bamboo Toothbrush (Rp 25.000)');
+  console.log('  - Reusable Shopping Bag (Rp 35.000)');
+  console.log('  - Stainless Steel Straw Set (Rp 45.000)');
+  console.log('  - Home Compost Bin (Rp 150.000)');
+  console.log('  - Beeswax Food Wrap (Rp 55.000)');
+  console.log('  - Solar Power Bank (Rp 250.000)');
+  console.log('  - Organic Bar Soap (Rp 30.000)');
+  console.log('  - Glass Water Bottle (Rp 85.000)');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 

@@ -25,6 +25,13 @@ enum WasteCategory {
   B3
 }
 
+enum TransactionStatus {
+  PENDING
+  PAID
+  CANCELLED
+  FAILED
+}
+
 model User {
   id            String   @id @default(uuid())
   nama_panggilan String
@@ -38,6 +45,7 @@ model User {
 
   passwordResetTokens PasswordResetToken[]
   wasteLocations      WasteLocation[]
+  transactions        Transaction[]
 
   @@map("users")
 }
@@ -81,4 +89,38 @@ model WasteLocationCategory {
 
   @@unique([wasteLocationId, category])
   @@map("waste_location_categories")
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  stock       Int
+  image_url   String?       @map("image_url")
+  category    String
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  
+  transactions Transaction[]
+
+  @@map("products")
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  userId          String            @map("user_id")
+  productId       String            @map("product_id")
+  quantity        Int               @default(1)
+  amount          Float
+  status          TransactionStatus @default(PENDING)
+  payment_url     String?           @map("payment_url")
+  midtrans_order  String?           @unique @map("midtrans_order_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("transactions")
 }
