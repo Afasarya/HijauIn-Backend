@@ -183,18 +183,19 @@ export class TransactionsService {
   async handleMidtransNotification(notification: any): Promise<void> {
     const { order_id, transaction_status, fraud_status, signature_key, status_code, gross_amount } = notification;
 
-    console.log('🔔 Webhook received:', {
-      order_id,
-      transaction_status,
-      fraud_status,
-      status_code,
-      gross_amount,
-    });
+    console.log('🔔 ============ MIDTRANS WEBHOOK RECEIVED ============');
+    console.log('📦 Notification Data:', JSON.stringify(notification, null, 2));
+    console.log('🆔 Order ID:', order_id);
+    console.log('📊 Transaction Status:', transaction_status);
+    console.log('🔒 Fraud Status:', fraud_status);
+    console.log('💰 Gross Amount:', gross_amount);
+    console.log('🔐 Status Code:', status_code);
 
-    // Verify signature (skip in development/testing)
-    const isDevelopment = process.env.NODE_ENV !== 'production';
+    // Verify signature - PENTING untuk production
+    const isProduction = process.env.NODE_ENV === 'production';
     
-    if (!isDevelopment) {
+    if (isProduction) {
+      console.log('🔐 Verifying signature in PRODUCTION mode...');
       const isValid = this.midtransService.verifySignature(
         order_id,
         status_code,
@@ -203,44 +204,69 @@ export class TransactionsService {
       );
 
       if (!isValid) {
+        console.error('❌ INVALID SIGNATURE! Possible fraud attempt.');
         throw new BadRequestException('Invalid signature');
       }
+      console.log('✅ Signature verified successfully');
     } else {
       console.log('⚠️  Signature verification skipped (development mode)');
     }
 
-    // Find transaction
+    // Find transaction by midtrans_order
+    console.log('🔍 Finding transaction with order_id:', order_id);
     const transaction = await this.prisma.transaction.findUnique({
       where: { midtrans_order: order_id },
       include: { product: true },
     });
 
     if (!transaction) {
-      console.error(`❌ Transaction not found: ${order_id}`);
+      console.error('❌ Transaction NOT FOUND for order_id:', order_id);
       throw new NotFoundException(`Transaction with order ID ${order_id} not found`);
     }
 
     console.log('✅ Transaction found:', {
-      id: transaction.id,
+      transactionId: transaction.id,
       currentStatus: transaction.status,
-      newStatus: transaction_status,
+      productName: transaction.product.name,
+      quantity: transaction.quantity,
+      amount: transaction.amount,
     });
 
-    // Parse status
-    const status = this.midtransService.parseTransactionStatus(transaction_status, fraud_status);
+    // Parse status dari Midtrans
+    const newStatus = this.midtransService.parseTransactionStatus(transaction_status, fraud_status);
+    console.log('🔄 Mapping Midtrans status:', {
+      midtransStatus: transaction_status,
+      fraudStatus: fraud_status,
+      mappedStatus: newStatus,
+    });
 
-    console.log('🔄 Updating transaction status to:', status);
+    // Check if status actually changed
+    if (transaction.status === newStatus) {
+      console.log('⚠️  Status unchanged, skipping update');
+      return;
+    }
 
-    // Update transaction status
-    await this.prisma.transaction.update({
+    console.log('🔄 Updating transaction status from', transaction.status, 'to', newStatus);
+
+    // Update transaction status dengan updatedAt
+    const updatedTransaction = await this.prisma.transaction.update({
       where: { id: transaction.id },
-      data: { status },
+      data: { 
+        status: newStatus,
+        updatedAt: new Date(),
+      },
     });
 
-    // If paid, reduce stock
-    if (status === 'PAID' && transaction.status !== 'PAID') {
-      console.log('📦 Reducing product stock...');
-      await this.prisma.product.update({
+    console.log('✅ Transaction status updated successfully:', updatedTransaction.status);
+
+    // If paid and not already paid before, reduce stock
+    if (newStatus === 'PAID' && transaction.status !== 'PAID') {
+      console.log('📦 Payment confirmed! Reducing product stock...');
+      console.log('📦 Product:', transaction.product.name);
+      console.log('📦 Current stock:', transaction.product.stock);
+      console.log('📦 Quantity to reduce:', transaction.quantity);
+
+      const updatedProduct = await this.prisma.product.update({
         where: { id: transaction.productId },
         data: {
           stock: {
@@ -248,10 +274,148 @@ export class TransactionsService {
           },
         },
       });
-      console.log('✅ Stock reduced successfully');
+
+      console.log('✅ Stock reduced successfully! New stock:', updatedProduct.stock);
     }
 
-    console.log('✅ Webhook processed successfully');
+    console.log('✅ ============ WEBHOOK PROCESSED SUCCESSFULLY ============\n');
+  }
+
+  /**
+   * Check payment status dari Midtrans dan update database
+   * Method ini yang akan dipanggil oleh frontend Flutter
+   */
+  async checkAndUpdatePaymentStatus(transactionId: string, userId: string): Promise<TransactionResponse> {
+    // Get transaction dari database
+    const transaction = await this.prisma.transaction.findFirst({
+      where: { 
+        id: transactionId,
+        userId,
+      },
+      include: {
+        product: true,
+      },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transaction with ID ${transactionId} not found`);
+    }
+
+    // Check if midtrans_order exists
+    if (!transaction.midtrans_order) {
+      throw new BadRequestException('Transaction does not have a Midtrans order ID');
+    }
+
+    console.log('🔍 Checking payment status for transaction:', {
+      id: transaction.id,
+      orderId: transaction.midtrans_order,
+      currentStatus: transaction.status,
+    });
+
+    // Kalau sudah PAID, langsung return
+    if (transaction.status === 'PAID') {
+      console.log('✅ Transaction already paid, returning current status');
+      return {
+        ...transaction,
+        amountFormatted: formatToRupiah(transaction.amount),
+        product: transaction.product ? {
+          ...transaction.product,
+          priceFormatted: formatToRupiah(transaction.product.price),
+        } : undefined,
+      };
+    }
+
+    try {
+      // Check status dari Midtrans API
+      const midtransStatus = await this.midtransService.getTransactionStatus(transaction.midtrans_order);
+      
+      console.log('📊 Midtrans status response:', {
+        transaction_status: midtransStatus.transaction_status,
+        fraud_status: midtransStatus.fraud_status,
+        payment_type: midtransStatus.payment_type,
+      });
+
+      // Parse status
+      const newStatus = this.midtransService.parseTransactionStatus(
+        midtransStatus.transaction_status,
+        midtransStatus.fraud_status
+      );
+
+      console.log('🔄 Status mapping:', {
+        currentStatus: transaction.status,
+        newStatus: newStatus,
+      });
+
+      // Kalau status berubah, update database
+      if (transaction.status !== newStatus) {
+        console.log(`🔄 Updating transaction status from ${transaction.status} to ${newStatus}`);
+        
+        const updatedTransaction = await this.prisma.transaction.update({
+          where: { id: transaction.id },
+          data: { 
+            status: newStatus,
+            updatedAt: new Date(),
+          },
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                image_url: true,
+              },
+            },
+          },
+        });
+
+        // Kalau baru saja dibayar, kurangi stock
+        const wasPending = transaction.status === 'PENDING' || transaction.status === 'FAILED' || transaction.status === 'CANCELLED';
+        if (newStatus === 'PAID' && wasPending) {
+          console.log('💰 Payment confirmed! Reducing product stock...');
+          
+          await this.prisma.product.update({
+            where: { id: transaction.productId },
+            data: {
+              stock: {
+                decrement: transaction.quantity,
+              },
+            },
+          });
+          
+          console.log('✅ Stock reduced successfully!');
+        }
+
+        return {
+          ...updatedTransaction,
+          amountFormatted: formatToRupiah(updatedTransaction.amount),
+          product: updatedTransaction.product ? {
+            ...updatedTransaction.product,
+            priceFormatted: formatToRupiah(updatedTransaction.product.price),
+          } : undefined,
+        };
+      }
+
+      // Status tidak berubah, return current
+      return {
+        ...transaction,
+        amountFormatted: formatToRupiah(transaction.amount),
+        product: transaction.product ? {
+          ...transaction.product,
+          priceFormatted: formatToRupiah(transaction.product.price),
+        } : undefined,
+      };
+    } catch (error) {
+      console.error('❌ Error checking payment status:', error);
+      // Kalau error, return status sekarang (jangan throw error)
+      return {
+        ...transaction,
+        amountFormatted: formatToRupiah(transaction.amount),
+        product: transaction.product ? {
+          ...transaction.product,
+          priceFormatted: formatToRupiah(transaction.product.price),
+        } : undefined,
+      };
+    }
   }
 
   async getAllTransactions(): Promise<TransactionResponse[]> {

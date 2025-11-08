@@ -45,6 +45,16 @@ export class TransactionsController {
     return this.transactionsService.findOne(id, req.user.id);
   }
 
+  /**
+   * Endpoint untuk Flutter check payment status
+   * Flutter tinggal polling endpoint ini setiap 3-5 detik
+   */
+  @Get(':id/check-status')
+  @UseGuards(JwtAuthGuard)
+  checkPaymentStatus(@Param('id') id: string, @Req() req) {
+    return this.transactionsService.checkAndUpdatePaymentStatus(id, req.user.id);
+  }
+
   @Post('webhook/midtrans')
   @HttpCode(HttpStatus.OK)
   async handleMidtransWebhook(@Body() notification: any) {
