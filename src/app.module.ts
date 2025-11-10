@@ -9,6 +9,7 @@ import { WasteLocationsModule } from './waste-locations/waste-locations.module';
 import { ProductsModule } from './products/products.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { MidtransModule } from './midtrans/midtrans.module';
+import { ArticlesModule } from './articles/articles.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { MidtransModule } from './midtrans/midtrans.module';
     MidtransModule,
     ProductsModule,
     TransactionsModule,
+    ArticlesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

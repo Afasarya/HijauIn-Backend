@@ -46,6 +46,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   wasteLocations      WasteLocation[]
   transactions        Transaction[]
+  articles            Article[]
 
   @@map("users")
 }
@@ -123,4 +124,18 @@ model Transaction {
   product Product @relation(fields: [productId], references: [id])
 
   @@map("transactions")
+}
+
+model Article {
+  id           String   @id @default(uuid())
+  title        String
+  slug         String   @unique
+  thumbnailUrl String?  @map("thumbnail_url")
+  content      String   @db.Text
+  authorId     String   @map("author_id")
+  author       User     @relation(fields: [authorId], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("articles")
 }
