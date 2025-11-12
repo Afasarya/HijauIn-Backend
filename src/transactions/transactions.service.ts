@@ -391,6 +391,66 @@ export class TransactionsService {
   }
 
   /**
+   * Delete transaction (Admin only)
+   * Menghapus transaksi beserta transaction items dan shipping detail
+   * HANYA untuk transaksi dengan status PENDING, FAILED, atau CANCELLED
+   */
+  async deleteTransaction(transactionId: string) {
+    // Cek apakah transaksi ada
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { id: transactionId },
+      include: {
+        items: true,
+        shippingDetail: true,
+        user: {
+          select: {
+            nama_panggilan: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    // Validasi: hanya transaksi tertentu yang boleh dihapus
+    const deletableStatuses = ['PENDING', 'FAILED', 'CANCELLED'];
+    if (!deletableStatuses.includes(transaction.status)) {
+      throw new BadRequestException(
+        `Cannot delete transaction with status ${transaction.status}. Only PENDING, FAILED, or CANCELLED transactions can be deleted.`
+      );
+    }
+
+    // Delete transaction (cascade akan otomatis hapus items dan shipping detail)
+    await this.prisma.transaction.delete({
+      where: { id: transactionId },
+    });
+
+    console.log('🗑️ Transaction deleted:', {
+      id: transactionId,
+      orderNumber: transaction.orderNumber,
+      user: transaction.user.email,
+      status: transaction.status,
+      totalAmount: transaction.totalAmount,
+    });
+
+    return {
+      message: 'Transaction deleted successfully',
+      data: {
+        id: transaction.id,
+        orderNumber: transaction.orderNumber,
+        status: transaction.status,
+        totalAmount: transaction.totalAmount,
+        totalAmountFormatted: formatToRupiah(transaction.totalAmount),
+        user: transaction.user,
+        deletedAt: new Date(),
+      },
+    };
+  }
+
+  /**
    * Handle Midtrans webhook notification
    */
   async handleMidtransNotification(notification: any): Promise<void> {

@@ -9,6 +9,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Delete,
 } from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto, CheckoutDto } from './dto';
@@ -80,6 +81,17 @@ export class TransactionsController {
     @Body('status') status: string,
   ) {
     return this.transactionsService.updateTransactionStatus(id, status);
+  }
+
+  /**
+   * Admin: Delete transaction
+   * Only PENDING, FAILED, or CANCELLED transactions can be deleted
+   */
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  deleteTransaction(@Param('id') id: string) {
+    return this.transactionsService.deleteTransaction(id);
   }
 
   /**
