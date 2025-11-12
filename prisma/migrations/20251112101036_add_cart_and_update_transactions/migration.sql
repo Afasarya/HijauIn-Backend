@@ -1,12 +1,7 @@
 /*
   Warnings:
 
-  - You are about to drop the column `amount` on the `transactions` table. All the data in the column will be lost.
-  - You are about to drop the column `product_id` on the `transactions` table. All the data in the column will be lost.
-  - You are about to drop the column `quantity` on the `transactions` table. All the data in the column will be lost.
   - A unique constraint covering the columns `[order_number]` on the table `transactions` will be added. If there are existing duplicate values, this will fail.
-  - Added the required column `order_number` to the `transactions` table without a default value. This is not possible if the table is not empty.
-  - Added the required column `total_amount` to the `transactions` table without a default value. This is not possible if the table is not empty.
 
 */
 -- AlterEnum
@@ -16,23 +11,38 @@
 -- multiple migrations, each migration adding only one value to
 -- the enum.
 
+ALTER TYPE "TransactionStatus" ADD VALUE IF NOT EXISTS 'PROCESSING';
+ALTER TYPE "TransactionStatus" ADD VALUE IF NOT EXISTS 'SHIPPED';
+ALTER TYPE "TransactionStatus" ADD VALUE IF NOT EXISTS 'DELIVERED';
 
-ALTER TYPE "TransactionStatus" ADD VALUE 'PROCESSING';
-ALTER TYPE "TransactionStatus" ADD VALUE 'SHIPPED';
-ALTER TYPE "TransactionStatus" ADD VALUE 'DELIVERED';
+-- Step 1: Add new columns as NULLABLE first (backward compatible)
+ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "order_number" TEXT;
+ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "total_amount" DOUBLE PRECISION;
 
--- DropForeignKey
-ALTER TABLE "public"."transactions" DROP CONSTRAINT "transactions_product_id_fkey";
+-- Step 2: Generate order_number for existing transactions (if any)
+UPDATE "transactions" 
+SET "order_number" = 'ORD-' || EXTRACT(EPOCH FROM created_at)::TEXT || '-' || SUBSTRING(user_id, 1, 8)
+WHERE "order_number" IS NULL;
 
--- AlterTable
-ALTER TABLE "transactions" DROP COLUMN "amount",
-DROP COLUMN "product_id",
-DROP COLUMN "quantity",
-ADD COLUMN     "order_number" TEXT NOT NULL,
-ADD COLUMN     "total_amount" DOUBLE PRECISION NOT NULL;
+-- Step 3: Copy amount to total_amount for existing transactions
+UPDATE "transactions" 
+SET "total_amount" = "amount"
+WHERE "total_amount" IS NULL AND "amount" IS NOT NULL;
 
--- CreateTable
-CREATE TABLE "carts" (
+-- Step 4: Set default value for transactions without amount
+UPDATE "transactions" 
+SET "total_amount" = 0
+WHERE "total_amount" IS NULL;
+
+-- Step 5: Now make new columns NOT NULL (safe because all rows have values)
+ALTER TABLE "transactions" ALTER COLUMN "order_number" SET NOT NULL;
+ALTER TABLE "transactions" ALTER COLUMN "total_amount" SET NOT NULL;
+
+-- Step 6: Create unique index on order_number
+CREATE UNIQUE INDEX IF NOT EXISTS "transactions_order_number_key" ON "transactions"("order_number");
+
+-- Step 7: Create Cart tables
+CREATE TABLE IF NOT EXISTS "carts" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -41,8 +51,7 @@ CREATE TABLE "carts" (
     CONSTRAINT "carts_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "cart_items" (
+CREATE TABLE IF NOT EXISTS "cart_items" (
     "id" TEXT NOT NULL,
     "cart_id" TEXT NOT NULL,
     "product_id" TEXT NOT NULL,
@@ -53,8 +62,8 @@ CREATE TABLE "cart_items" (
     CONSTRAINT "cart_items_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "transaction_items" (
+-- Step 8: Create TransactionItem table
+CREATE TABLE IF NOT EXISTS "transaction_items" (
     "id" TEXT NOT NULL,
     "transaction_id" TEXT NOT NULL,
     "product_id" TEXT NOT NULL,
@@ -67,8 +76,8 @@ CREATE TABLE "transaction_items" (
     CONSTRAINT "transaction_items_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "shipping_details" (
+-- Step 9: Create ShippingDetail table
+CREATE TABLE IF NOT EXISTS "shipping_details" (
     "id" TEXT NOT NULL,
     "transaction_id" TEXT NOT NULL,
     "recipient_name" TEXT NOT NULL,
@@ -84,29 +93,60 @@ CREATE TABLE "shipping_details" (
     CONSTRAINT "shipping_details_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE UNIQUE INDEX "carts_user_id_key" ON "carts"("user_id");
+-- Step 10: Create indexes
+CREATE UNIQUE INDEX IF NOT EXISTS "carts_user_id_key" ON "carts"("user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "cart_items_cart_id_product_id_key" ON "cart_items"("cart_id", "product_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "shipping_details_transaction_id_key" ON "shipping_details"("transaction_id");
 
--- CreateIndex
-CREATE UNIQUE INDEX "cart_items_cart_id_product_id_key" ON "cart_items"("cart_id", "product_id");
+-- Step 11: Add foreign keys
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'carts_user_id_fkey') THEN
+        ALTER TABLE "carts" ADD CONSTRAINT "carts_user_id_fkey" 
+        FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
 
--- CreateIndex
-CREATE UNIQUE INDEX "shipping_details_transaction_id_key" ON "shipping_details"("transaction_id");
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'cart_items_cart_id_fkey') THEN
+        ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_cart_id_fkey" 
+        FOREIGN KEY ("cart_id") REFERENCES "carts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
 
--- CreateIndex
-CREATE UNIQUE INDEX "transactions_order_number_key" ON "transactions"("order_number");
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'cart_items_product_id_fkey') THEN
+        ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_product_id_fkey" 
+        FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    END IF;
 
--- AddForeignKey
-ALTER TABLE "carts" ADD CONSTRAINT "carts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'transaction_items_transaction_id_fkey') THEN
+        ALTER TABLE "transaction_items" ADD CONSTRAINT "transaction_items_transaction_id_fkey" 
+        FOREIGN KEY ("transaction_id") REFERENCES "transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
 
--- AddForeignKey
-ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_cart_id_fkey" FOREIGN KEY ("cart_id") REFERENCES "carts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'shipping_details_transaction_id_fkey') THEN
+        ALTER TABLE "shipping_details" ADD CONSTRAINT "shipping_details_transaction_id_fkey" 
+        FOREIGN KEY ("transaction_id") REFERENCES "transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- Step 12: Migrate existing transaction data to transaction_items (if any)
+INSERT INTO "transaction_items" ("id", "transaction_id", "product_id", "product_name", "product_price", "quantity", "subtotal", "created_at")
+SELECT 
+    gen_random_uuid(),
+    t.id,
+    t.product_id,
+    COALESCE(p.name, 'Unknown Product'),
+    COALESCE(p.price, 0),
+    COALESCE(t.quantity, 1),
+    COALESCE(t.amount, 0),
+    t.created_at
+FROM "transactions" t
+LEFT JOIN "products" p ON p.id = t.product_id
+WHERE t.product_id IS NOT NULL 
+AND NOT EXISTS (
+    SELECT 1 FROM "transaction_items" ti WHERE ti.transaction_id = t.id
+)
+ON CONFLICT DO NOTHING;
 
--- AddForeignKey
-ALTER TABLE "transaction_items" ADD CONSTRAINT "transaction_items_transaction_id_fkey" FOREIGN KEY ("transaction_id") REFERENCES "transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "shipping_details" ADD CONSTRAINT "shipping_details_transaction_id_fkey" FOREIGN KEY ("transaction_id") REFERENCES "transactions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- Step 13: IMPORTANT - Keep old columns for backward compatibility
+-- DO NOT DROP product_id, quantity, amount columns
+-- Old code may still reference them
+-- They will be deprecated gradually
