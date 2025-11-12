@@ -272,4 +272,33 @@ export class AuthService {
       },
     });
   }
+
+  /**
+   * Logout user
+   * Note: JWT adalah stateless, jadi logout dilakukan di client side dengan menghapus token
+   * Method ini hanya untuk logging dan future token blacklist implementation
+   */
+  async logout(userId: string) {
+    // Log logout activity
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+      },
+    });
+
+    if (user) {
+      // Bisa ditambahkan logging ke database jika diperlukan
+      console.log(`User logged out: ${user.email} (${user.username})`);
+    }
+
+    // TODO: Jika ingin implementasi token blacklist, tambahkan token ke blacklist table
+    // await this.prisma.tokenBlacklist.create({ data: { token, userId, expiresAt } });
+
+    return {
+      message: 'Logout successful',
+    };
+  }
 }

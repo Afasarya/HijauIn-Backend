@@ -22,6 +22,12 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  async logout(@GetUser('id') userId: string) {
+    return this.authService.logout(userId);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('profile')
   async getProfile(@GetUser() user: any) {

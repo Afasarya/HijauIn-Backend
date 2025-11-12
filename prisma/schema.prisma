@@ -30,6 +30,9 @@ enum TransactionStatus {
   PAID
   CANCELLED
   FAILED
+  PROCESSING
+  SHIPPED
+  DELIVERED
 }
 
 model User {
@@ -47,6 +50,7 @@ model User {
   wasteLocations      WasteLocation[]
   transactions        Transaction[]
   articles            Article[]
+  cart                Cart?
 
   @@map("users")
 }
@@ -92,38 +96,112 @@ model WasteLocationCategory {
   @@map("waste_location_categories")
 }
 
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  image_url   String?   @map("image_url")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  products    Product[]
+
+  @@map("product_categories")
+}
+
 model Product {
-  id          String        @id @default(uuid())
+  id          String          @id @default(uuid())
   name        String
   description String?
   price       Float
   stock       Int
-  image_url   String?       @map("image_url")
-  category    String
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  image_url   String?         @map("image_url")
+  categoryId  String          @map("category_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
   
-  transactions Transaction[]
+  category      ProductCategory @relation(fields: [categoryId], references: [id])
+  cartItems     CartItem[]
 
   @@map("products")
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique @map("user_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
 }
 
 model Transaction {
   id              String            @id @default(uuid())
   userId          String            @map("user_id")
-  productId       String            @map("product_id")
-  quantity        Int               @default(1)
-  amount          Float
+  orderNumber     String            @unique @map("order_number")
+  totalAmount     Float             @map("total_amount")
   status          TransactionStatus @default(PENDING)
-  payment_url     String?           @map("payment_url")
-  midtrans_order  String?           @unique @map("midtrans_order_id")
+  paymentUrl      String?           @map("payment_url")
+  midtransOrderId String?           @unique @map("midtrans_order_id")
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
 
-  user    User    @relation(fields: [userId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+  items           TransactionItem[]
+  shippingDetail  ShippingDetail?
 
   @@map("transactions")
+}
+
+model TransactionItem {
+  id            String      @id @default(uuid())
+  transactionId String      @map("transaction_id")
+  productId     String      @map("product_id")
+  productName   String      @map("product_name")
+  productPrice  Float       @map("product_price")
+  quantity      Int
+  subtotal      Float
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("transaction_items")
+}
+
+model ShippingDetail {
+  id              String      @id @default(uuid())
+  transactionId   String      @unique @map("transaction_id")
+  recipientName   String      @map("recipient_name")
+  phoneNumber     String      @map("phone_number")
+  address         String
+  city            String
+  province        String
+  postalCode      String      @map("postal_code")
+  notes           String?
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  transaction     Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("shipping_details")
 }
 
 model Article {

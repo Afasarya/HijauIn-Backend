@@ -133,7 +133,68 @@ async function main() {
     console.log('✅ Waste location created:', location.name, `(${categories.join(', ')})`);
   }
 
-  // Create sample eco-green products
+  // Create Product Categories
+  const productCategories = [
+    {
+      id: 'seed-category-personal-care',
+      name: 'Personal Care',
+      description: 'Produk perawatan diri ramah lingkungan',
+      image_url: 'https://images.unsplash.com/photo-1556228578-8c89e6adf883',
+    },
+    {
+      id: 'seed-category-kitchen',
+      name: 'Kitchen',
+      description: 'Peralatan dapur eco-friendly',
+      image_url: 'https://images.unsplash.com/photo-1556911220-bff31c812dba',
+    },
+    {
+      id: 'seed-category-shopping',
+      name: 'Shopping',
+      description: 'Tas dan wadah belanja ramah lingkungan',
+      image_url: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b',
+    },
+    {
+      id: 'seed-category-home-garden',
+      name: 'Home & Garden',
+      description: 'Produk untuk rumah dan taman hijau',
+      image_url: 'https://images.unsplash.com/photo-1585659722983-3a675dabf23d',
+    },
+    {
+      id: 'seed-category-electronics',
+      name: 'Electronics',
+      description: 'Elektronik hemat energi dan eco-friendly',
+      image_url: 'https://images.unsplash.com/photo-1498049794561-7780e7231661',
+    },
+    {
+      id: 'seed-category-drinkware',
+      name: 'Drinkware',
+      description: 'Botol minum dan tumbler ramah lingkungan',
+      image_url: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8',
+    },
+  ];
+
+  const categoryMap: Record<string, string> = {};
+
+  for (const category of productCategories) {
+    const existingCategory = await prisma.productCategory.findUnique({
+      where: { id: category.id },
+    });
+
+    if (existingCategory) {
+      console.log('⏭️  Product category already exists:', category.name);
+      categoryMap[category.name] = existingCategory.id;
+      continue;
+    }
+
+    const created = await prisma.productCategory.create({
+      data: category,
+    });
+
+    categoryMap[category.name] = created.id;
+    console.log('✅ Product category created:', category.name);
+  }
+
+  // Create sample eco-green products with categoryId
   const products = [
     {
       id: 'seed-product-bamboo-toothbrush',
@@ -141,7 +202,7 @@ async function main() {
       description: 'Sikat gigi ramah lingkungan terbuat dari bambu organik',
       price: 25000,
       stock: 100,
-      category: 'Personal Care',
+      categoryId: categoryMap['Personal Care'],
       image_url: 'https://images.unsplash.com/photo-1607613009820-a29f7bb81c04',
     },
     {
@@ -150,7 +211,7 @@ async function main() {
       description: 'Tas belanja kain dapat digunakan berkali-kali, mengurangi plastik',
       price: 35000,
       stock: 150,
-      category: 'Shopping',
+      categoryId: categoryMap['Shopping'],
       image_url: 'https://images.unsplash.com/photo-1591195853828-11db59a44f6b',
     },
     {
@@ -159,7 +220,7 @@ async function main() {
       description: 'Set sedotan stainless steel dengan sikat pembersih',
       price: 45000,
       stock: 80,
-      category: 'Kitchen',
+      categoryId: categoryMap['Kitchen'],
       image_url: 'https://images.unsplash.com/photo-1593113598332-cd9d8c8f7e5c',
     },
     {
@@ -168,7 +229,7 @@ async function main() {
       description: 'Tempat kompos untuk mengolah sampah organik di rumah',
       price: 150000,
       stock: 50,
-      category: 'Home & Garden',
+      categoryId: categoryMap['Home & Garden'],
       image_url: 'https://images.unsplash.com/photo-1585659722983-3a675dabf23d',
     },
     {
@@ -177,7 +238,7 @@ async function main() {
       description: 'Pembungkus makanan dari lilin lebah, alternatif plastik wrap',
       price: 55000,
       stock: 120,
-      category: 'Kitchen',
+      categoryId: categoryMap['Kitchen'],
       image_url: 'https://images.unsplash.com/photo-1610701596007-11502861dcfa',
     },
     {
@@ -186,7 +247,7 @@ async function main() {
       description: 'Power bank tenaga surya 20000mAh untuk charging eco-friendly',
       price: 250000,
       stock: 40,
-      category: 'Electronics',
+      categoryId: categoryMap['Electronics'],
       image_url: 'https://images.unsplash.com/photo-1509390144451-c8c73ddc2b6c',
     },
     {
@@ -195,7 +256,7 @@ async function main() {
       description: 'Sabun batangan organik tanpa kemasan plastik',
       price: 30000,
       stock: 200,
-      category: 'Personal Care',
+      categoryId: categoryMap['Personal Care'],
       image_url: 'https://images.unsplash.com/photo-1600857544200-242c2fc78e8a',
     },
     {
@@ -204,7 +265,7 @@ async function main() {
       description: 'Botol minum kaca dengan sleeve silikon, BPA free',
       price: 85000,
       stock: 90,
-      category: 'Drinkware',
+      categoryId: categoryMap['Drinkware'],
       image_url: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8',
     },
   ];
@@ -223,7 +284,7 @@ async function main() {
       data: product,
     });
 
-    console.log('✅ Product created:', product.name, `(${product.category})`);
+    console.log('✅ Product created:', product.name);
   }
 
   console.log('\n🎉 Seed completed!');
@@ -245,15 +306,22 @@ async function main() {
   console.log('  - TPA Regional Purwokerto (ANORGANIK)');
   console.log('  - Pusat Pengolahan Limbah B3 (B3)');
   console.log('  - TPS Pasar Wage (ORGANIK, ANORGANIK)');
+  console.log('\n📦 Product Categories:');
+  console.log('  - Personal Care');
+  console.log('  - Kitchen');
+  console.log('  - Shopping');
+  console.log('  - Home & Garden');
+  console.log('  - Electronics');
+  console.log('  - Drinkware');
   console.log('\n🛍️ Sample Eco-Green Products:');
-  console.log('  - Bamboo Toothbrush (Rp 25.000)');
-  console.log('  - Reusable Shopping Bag (Rp 35.000)');
-  console.log('  - Stainless Steel Straw Set (Rp 45.000)');
-  console.log('  - Home Compost Bin (Rp 150.000)');
-  console.log('  - Beeswax Food Wrap (Rp 55.000)');
-  console.log('  - Solar Power Bank (Rp 250.000)');
-  console.log('  - Organic Bar Soap (Rp 30.000)');
-  console.log('  - Glass Water Bottle (Rp 85.000)');
+  console.log('  - Bamboo Toothbrush (Rp 25.000) - Personal Care');
+  console.log('  - Reusable Shopping Bag (Rp 35.000) - Shopping');
+  console.log('  - Stainless Steel Straw Set (Rp 45.000) - Kitchen');
+  console.log('  - Home Compost Bin (Rp 150.000) - Home & Garden');
+  console.log('  - Beeswax Food Wrap (Rp 55.000) - Kitchen');
+  console.log('  - Solar Power Bank (Rp 250.000) - Electronics');
+  console.log('  - Organic Bar Soap (Rp 30.000) - Personal Care');
+  console.log('  - Glass Water Bottle (Rp 85.000) - Drinkware');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 

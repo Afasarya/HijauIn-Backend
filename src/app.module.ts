@@ -10,6 +10,8 @@ import { ProductsModule } from './products/products.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { MidtransModule } from './midtrans/midtrans.module';
 import { ArticlesModule } from './articles/articles.module';
+import { ProductCategoriesModule } from './product-categories/product-categories.module';
+import { CartModule } from './cart/cart.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { ArticlesModule } from './articles/articles.module';
     ProductsModule,
     TransactionsModule,
     ArticlesModule,
+    ProductCategoriesModule,
+    CartModule,
   ],
   controllers: [AppController],
   providers: [AppService],

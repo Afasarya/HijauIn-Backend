@@ -9,8 +9,20 @@ export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createProductDto: CreateProductDto): Promise<ProductResponse> {
+    // Validate category exists
+    const category = await this.prisma.productCategory.findUnique({
+      where: { id: createProductDto.categoryId },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${createProductDto.categoryId} not found`);
+    }
+
     const product = await this.prisma.product.create({
       data: createProductDto,
+      include: {
+        category: true,
+      },
     });
 
     return {
@@ -33,7 +45,12 @@ export class ProductsService {
     }
 
     if (category) {
-      where.category = { contains: category, mode: 'insensitive' };
+      // Search by category name or ID
+      where.OR = [
+        ...(where.OR || []),
+        { categoryId: category },
+        { category: { name: { contains: category, mode: 'insensitive' } } },
+      ];
     }
 
     if (minPrice !== undefined || maxPrice !== undefined) {
@@ -55,6 +72,9 @@ export class ProductsService {
       skip: (page - 1) * limit,
       take: limit,
       orderBy: { createdAt: 'desc' },
+      include: {
+        category: true,
+      },
     });
 
     return {
@@ -74,6 +94,9 @@ export class ProductsService {
   async findOne(id: string): Promise<ProductResponse> {
     const product = await this.prisma.product.findUnique({
       where: { id },
+      include: {
+        category: true,
+      },
     });
 
     if (!product) {
@@ -90,9 +113,23 @@ export class ProductsService {
     // Check if product exists
     await this.findOne(id);
 
+    // Validate category exists if categoryId is being updated
+    if (updateProductDto.categoryId) {
+      const category = await this.prisma.productCategory.findUnique({
+        where: { id: updateProductDto.categoryId },
+      });
+
+      if (!category) {
+        throw new NotFoundException(`Category with ID ${updateProductDto.categoryId} not found`);
+      }
+    }
+
     const product = await this.prisma.product.update({
       where: { id },
       data: updateProductDto,
+      include: {
+        category: true,
+      },
     });
 
     return {
@@ -107,7 +144,8 @@ export class ProductsService {
 
     // Check if product has any transactions
     const transactionCount = await this.prisma.transaction.count({
-      where: { productId: id },
+      // Count transactions that include this product in their items
+      where: { items: { some: { productId: id } } },
     });
 
     if (transactionCount > 0) {
@@ -124,11 +162,10 @@ export class ProductsService {
   }
 
   async getCategories(): Promise<string[]> {
-    const products = await this.prisma.product.findMany({
-      select: { category: true },
-      distinct: ['category'],
+    const categories = await this.prisma.productCategory.findMany({
+      select: { id: true, name: true },
     });
 
-    return products.map((p) => p.category);
+    return categories.map((c) => c.name);
   }
 }

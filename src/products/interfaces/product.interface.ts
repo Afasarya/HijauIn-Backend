@@ -1,3 +1,12 @@
+export interface ProductCategory {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ProductResponse {
   id: string;
   name: string;
@@ -6,7 +15,8 @@ export interface ProductResponse {
   priceFormatted: string;
   stock: number;
   image_url: string | null;
-  category: string;
+  categoryId: string;
+  category: ProductCategory;
   createdAt: Date;
   updatedAt: Date;
 }
