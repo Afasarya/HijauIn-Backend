@@ -8,6 +8,9 @@ import {
   Delete,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { WasteLocationsService } from './waste-locations.service';
 import { CreateWasteLocationDto, UpdateWasteLocationDto, NearbyQueryDto } from './dto';
@@ -17,6 +20,9 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
 import { WasteCategory } from '../../generated/prisma/client';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 /**
  * ============================================
@@ -30,6 +36,7 @@ import { WasteCategory } from '../../generated/prisma/client';
  * 
  * ADMIN ENDPOINTS (require JWT + ADMIN role):
  * - POST   /waste-locations          → Tambah lokasi tong sampah
+ * - POST   /waste-locations/upload   → Upload image untuk tong sampah
  * - GET    /waste-locations          → Lihat semua lokasi (admin view)
  * - GET    /waste-locations/:id      → Detail lokasi tong sampah
  * - PATCH  /waste-locations/:id      → Update lokasi tong sampah
@@ -75,6 +82,49 @@ export class WasteLocationsController {
   // ============================================
   // ADMIN ENDPOINTS
   // ============================================
+
+  @Post('waste-locations/upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads/waste-locations',
+        filename: (req, file, callback) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `waste-location-${uniqueSuffix}${ext}`);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return callback(
+            new BadRequestException('Only image files are allowed!'),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    const imageUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/waste-locations/${file.filename}`;
+    
+    return {
+      message: 'Image uploaded successfully',
+      data: {
+        filename: file.filename,
+        url: imageUrl,
+      },
+    };
+  }
 
   @Post('waste-locations')
   @UseGuards(JwtAuthGuard, RolesGuard)
