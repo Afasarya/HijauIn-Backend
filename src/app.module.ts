@@ -5,6 +5,7 @@ import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
+import { UploadModule } from './upload/upload.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { WasteLocationsModule } from './waste-locations/waste-locations.module';
@@ -26,6 +27,7 @@ import { CartModule } from './cart/cart.module';
       serveRoot: '/uploads',
     }),
     PrismaModule,
+    UploadModule,
     AuthModule,
     UsersModule,
     WasteLocationsModule,

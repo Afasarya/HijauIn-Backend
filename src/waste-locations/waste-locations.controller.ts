@@ -12,6 +12,7 @@ import {
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { WasteLocationsService } from './waste-locations.service';
 import { CreateWasteLocationDto, UpdateWasteLocationDto, NearbyQueryDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -20,9 +21,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
 import { WasteCategory } from '../../generated/prisma/client';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { UploadService } from '../upload/upload.service';
+import { createMulterOptions } from '../upload/multer.config';
 
 /**
  * ============================================
@@ -77,48 +77,33 @@ import { extname } from 'path';
 
 @Controller()
 export class WasteLocationsController {
-  constructor(private readonly wasteLocationsService: WasteLocationsService) {}
+  constructor(
+    private readonly wasteLocationsService: WasteLocationsService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   // ============================================
   // ADMIN ENDPOINTS
   // ============================================
 
+  /**
+   * Upload waste location image (Admin only)
+   * POST /waste-locations/upload
+   */
   @Post('waste-locations/upload')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @UseInterceptors(
-    FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/waste-locations',
-        filename: (req, file, callback) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          callback(null, `waste-location-${uniqueSuffix}${ext}`);
-        },
-      }),
-      fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
-          return callback(
-            new BadRequestException('Only image files are allowed!'),
-            false,
-          );
-        }
-        callback(null, true);
-      },
-      limits: {
-        fileSize: 5 * 1024 * 1024, // 5MB
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('image', createMulterOptions('waste-locations')))
   async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('No file uploaded');
     }
 
-    const imageUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/uploads/waste-locations/${file.filename}`;
-    
+    this.uploadService.validateFile(file);
+    const imageUrl = this.uploadService.getFileUrl('waste-locations', file.filename);
+
     return {
-      message: 'Image uploaded successfully',
+      message: 'Waste location image uploaded successfully',
       data: {
         filename: file.filename,
         url: imageUrl,

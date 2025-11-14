@@ -10,7 +10,11 @@ import {
   UseGuards,
   ParseIntPipe,
   DefaultValuePipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ArticlesService } from './articles.service';
 import { CreateArticleDto, UpdateArticleDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -18,14 +22,44 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
+import { UploadService } from '../upload/upload.service';
+import { createMulterOptions } from '../upload/multer.config';
 
 @Controller('articles')
 export class ArticlesController {
-  constructor(private readonly articlesService: ArticlesService) {}
+  constructor(
+    private readonly articlesService: ArticlesService,
+    private readonly uploadService: UploadService,
+  ) {}
 
   // ============================================
   // ADMIN ROUTES (Protected)
   // ============================================
+
+  /**
+   * Upload article thumbnail image (Admin only)
+   * POST /articles/upload
+   */
+  @Post('upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('image', createMulterOptions('articles')))
+  async uploadThumbnail(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    this.uploadService.validateFile(file);
+    const imageUrl = this.uploadService.getFileUrl('articles', file.filename);
+
+    return {
+      message: 'Article thumbnail uploaded successfully',
+      data: {
+        filename: file.filename,
+        url: imageUrl,
+      },
+    };
+  }
 
   /**
    * Create a new article (Admin only)

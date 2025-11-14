@@ -8,17 +8,51 @@ import {
   Delete,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto, FilterProductDto } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../auth/enums/user-role.enum';
+import { UploadService } from '../upload/upload.service';
+import { createMulterOptions } from '../upload/multer.config';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly uploadService: UploadService,
+  ) {}
+
+  /**
+   * Upload product image (Admin only)
+   * POST /products/upload
+   */
+  @Post('upload')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('image', createMulterOptions('products')))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+
+    this.uploadService.validateFile(file);
+    const imageUrl = this.uploadService.getFileUrl('products', file.filename);
+
+    return {
+      message: 'Product image uploaded successfully',
+      data: {
+        filename: file.filename,
+        url: imageUrl,
+      },
+    };
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -3,9 +3,29 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import * as express from 'express';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  // Ensure uploads directories exist
+  const uploadFolders = ['articles', 'products', 'product-categories', 'waste-locations'];
+  const uploadsPath = join(__dirname, '..', 'uploads');
+  
+  if (!existsSync(uploadsPath)) {
+    mkdirSync(uploadsPath, { recursive: true });
+  }
+  
+  uploadFolders.forEach(folder => {
+    const folderPath = join(uploadsPath, folder);
+    if (!existsSync(folderPath)) {
+      mkdirSync(folderPath, { recursive: true });
+    }
+  });
+  
+  // Serve static files from uploads directory
+  app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
   
   // Enable CORS untuk frontend dan Midtrans webhook
   app.enableCors({
