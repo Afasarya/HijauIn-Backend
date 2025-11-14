@@ -9,23 +9,34 @@ import { existsSync, mkdirSync } from 'fs';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Ensure uploads directories exist
+  // Ensure uploads directories exist using process.cwd() for production compatibility
   const uploadFolders = ['articles', 'products', 'product-categories', 'waste-locations'];
-  const uploadsPath = join(__dirname, '..', 'uploads');
+  const uploadsPath = join(process.cwd(), 'uploads');
+  
+  console.log('📂 Uploads path:', uploadsPath);
   
   if (!existsSync(uploadsPath)) {
     mkdirSync(uploadsPath, { recursive: true });
+    console.log('✅ Created uploads directory');
   }
   
   uploadFolders.forEach(folder => {
     const folderPath = join(uploadsPath, folder);
     if (!existsSync(folderPath)) {
       mkdirSync(folderPath, { recursive: true });
+      console.log(`✅ Created folder: ${folder}`);
     }
   });
   
-  // Serve static files from uploads directory
-  app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
+  // Serve static files from uploads directory - IMPORTANT for image access
+  app.use('/uploads', express.static(uploadsPath, {
+    maxAge: '1y',
+    etag: true,
+    lastModified: true,
+  }));
+  
+  console.log('📸 Static files serving from:', uploadsPath);
+  console.log('🌐 Files accessible at: /uploads/*');
   
   // Enable CORS untuk frontend dan Midtrans webhook
   app.enableCors({
@@ -60,5 +71,6 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀 Application is running on: http://localhost:${port}`);
   console.log(`📡 Webhook URL: ${process.env.BACKEND_URL}/transactions/webhook/midtrans`);
+  console.log(`🖼️  Uploaded images will be available at: ${process.env.BACKEND_URL}/uploads/...`);
 }
 bootstrap();
