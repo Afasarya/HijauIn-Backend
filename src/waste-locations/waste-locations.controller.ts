@@ -102,6 +102,14 @@ export class WasteLocationsController {
     this.uploadService.validateFile(file);
     const imageUrl = this.uploadService.getFileUrl('waste-locations', file.filename);
 
+    console.log('📸 Image uploaded:', {
+      filename: file.filename,
+      path: file.path,
+      size: file.size,
+      url: imageUrl,
+      backendUrl: process.env.BACKEND_URL,
+    });
+
     return {
       message: 'Waste location image uploaded successfully',
       data: {
