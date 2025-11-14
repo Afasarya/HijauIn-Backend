@@ -2,6 +2,8 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { Request } from 'express';
 import { BadRequestException } from '@nestjs/common';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 /**
  * Create multer disk storage configuration for a specific folder
@@ -11,7 +13,15 @@ export function createMulterOptions(folder: string) {
   return {
     storage: diskStorage({
       destination: (req: Request, file: Express.Multer.File, callback) => {
-        callback(null, `./uploads/${folder}`);
+        const uploadPath = join(process.cwd(), 'uploads', folder);
+        
+        // Ensure directory exists, create if not
+        if (!existsSync(uploadPath)) {
+          mkdirSync(uploadPath, { recursive: true });
+          console.log(`✅ Created upload directory: ${uploadPath}`);
+        }
+        
+        callback(null, uploadPath);
       },
       filename: (req: Request, file: Express.Multer.File, callback) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);

@@ -9,6 +9,11 @@ export class UploadService {
   constructor() {
     // Ensure base upload directory exists
     this.ensureUploadDirectory();
+    // Ensure all required folders exist
+    this.ensureFolder('waste-locations');
+    this.ensureFolder('articles');
+    this.ensureFolder('products');
+    this.ensureFolder('product-categories');
   }
 
   /**
@@ -17,6 +22,7 @@ export class UploadService {
   private ensureUploadDirectory() {
     if (!existsSync(this.uploadBasePath)) {
       mkdirSync(this.uploadBasePath, { recursive: true });
+      console.log('✅ Created base upload directory');
     }
   }
 
@@ -28,6 +34,7 @@ export class UploadService {
     const folderPath = join(this.uploadBasePath, folder);
     if (!existsSync(folderPath)) {
       mkdirSync(folderPath, { recursive: true });
+      console.log(`✅ Created upload folder: ${folder}`);
     }
   }
 
