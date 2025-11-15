@@ -48,6 +48,7 @@ async function bootstrap() {
       'https://app.sandbox.midtrans.com',
       'https://api.midtrans.com',
       'https://api.sandbox.midtrans.com',
+      "https://admin.mentorit.my.id",
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
